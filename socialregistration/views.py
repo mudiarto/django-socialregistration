@@ -1,4 +1,3 @@
-import uuid
 
 from django.conf import settings
 from django.template import RequestContext
@@ -6,8 +5,6 @@ from django.core.urlresolvers import reverse
 from django.shortcuts import render_to_response
 from django.utils.translation import gettext as _
 from django.http import HttpResponseRedirect
-
-from base36 import base36encode
 
 try:
     from django.views.decorators.csrf import csrf_protect
@@ -23,6 +20,8 @@ from socialregistration.forms import UserForm, FacebookUserForm
 from socialregistration.utils import (OAuthClient, OAuthTwitter,
     OpenID, _https, DiscoveryFailure)
 from socialregistration.models import FacebookProfile, TwitterProfile, OpenIDProfile
+
+from libs.utils import generate_unique_username
 
 
 FB_ERROR = _('We couldn\'t validate your Facebook credentials')
@@ -44,22 +43,6 @@ def _get_next(request):
     else:
         return getattr(settings, 'LOGIN_REDIRECT_URL', '/')
         
-def _generate_username():
-    ''' 
-    Generate random - unique username
-    '''     
-    found = True
-
-    while found:
-        username = base36encode(uuid.uuid4().int)
-        try:    
-            User.objects.get(username=username)
-            found = True
-        except User.DoesNotExist:
-            found = False
-    return username
-
-
 def setup(request, template='socialregistration/setup.html',
     form_class=UserForm, extra_context=dict()):
     """
@@ -96,7 +79,7 @@ def setup(request, template='socialregistration/setup.html',
         
     else:
         # Generate user and profile
-        social_user.username = _generate_username()
+        social_user.username = generate_unique_username()
         social_user.save()
 
         social_profile.user = social_user
@@ -134,7 +117,7 @@ def facebook_setup(request, template='socialregistration/facebook_setup.html',
         if not request.method == "POST":
             form = form_class(social_user, social_profile)
         else:
-            social_user.username = _generate_username()
+            social_user.username = generate_unique_username()
             form = form_class(social_user, social_profile, request.POST)
 
             if form.is_valid():
@@ -155,7 +138,7 @@ def facebook_setup(request, template='socialregistration/facebook_setup.html',
 
     else:
         # Generate user and profile
-        social_user.username = _generate_username()
+        social_user.username = generate_unique_username()
         social_user.save()
 
         social_profile.user = social_user

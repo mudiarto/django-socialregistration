@@ -32,7 +32,7 @@ class UserForm(forms.Form):
         
 class FacebookUserForm(forms.Form):
     #username = forms.RegexField(r'^\w+$', max_length=32)
-    email = forms.EmailField(required=False)
+    email = forms.EmailField(required=True)
 
     def __init__(self, user, profile, *args, **kwargs):
         super(FacebookUserForm, self).__init__(*args, **kwargs)
