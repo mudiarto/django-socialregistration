@@ -28,3 +28,29 @@ class UserForm(forms.Form):
         self.profile.user = self.user
         self.profile.save()
         return self.user
+        
+        
+class FacebookUserForm(forms.Form):
+    #username = forms.RegexField(r'^\w+$', max_length=32)
+    email = forms.EmailField(required=False)
+
+    def __init__(self, user, profile, *args, **kwargs):
+        super(FacebookUserForm, self).__init__(*args, **kwargs)
+        self.user = user
+        self.profile = profile
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return email
+        else:
+            raise forms.ValidationError(_('This email is already in use.'))
+
+    def save(self, request=None):
+        self.user.email = self.cleaned_data.get('email')
+        self.user.save()
+        self.profile.user = self.user
+        self.profile.save()
+        return self.user

@@ -9,6 +9,9 @@ from django.conf.urls.defaults import *
 
 
 urlpatterns = patterns('',
+    url('^facebook_setup/$', 'socialregistration.views.facebook_setup',
+        name='socialregistration_facebook_setup'),
+
     url('^setup/$', 'socialregistration.views.setup',
         name='socialregistration_setup'),
 
