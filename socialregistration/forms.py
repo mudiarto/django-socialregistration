@@ -2,6 +2,7 @@ from django import forms
 from django.utils.translation import gettext as _
 
 from django.contrib.auth.models import User
+from socialregistration.signals import socialregistrationuser_created
 
 class UserForm(forms.Form):
     username = forms.RegexField(r'^\w+$', max_length=32)
@@ -27,9 +28,14 @@ class UserForm(forms.Form):
         self.user.save()
         self.profile.user = self.user
         self.profile.save()
+        socialregistrationuser_created.send( 
+                        sender=None, 
+                        user=self.user, 
+                        profile=self.profile, 
+                        request=request)
         return self.user
-        
-        
+
+
 class FacebookUserForm(forms.Form):
     #username = forms.RegexField(r'^\w+$', max_length=32)
     email = forms.EmailField(required=True)
@@ -53,4 +59,9 @@ class FacebookUserForm(forms.Form):
         self.user.save()
         self.profile.user = self.user
         self.profile.save()
+        socialregistrationuser_created.send( 
+                        sender=None, 
+                        user=self.user, 
+                        profile=self.profile, 
+                        request=request)
         return self.user
