@@ -10,7 +10,12 @@ class FacebookProfile(models.Model):
     uid = models.CharField(max_length=255, blank=False, null=False)
     
     def __unicode__(self):
-        return u'%s: %s' % (self.user, self.uid)
+        # NOTE: I need to put try: except: here since it seems socialregistration
+        # conflicted with django_Debug_toolbar
+        try:
+            return u'%s: %s' % (self.user, self.uid)
+        except:
+            return u'self is None'
     
     def authenticate(self):
         return authenticate(uid=self.uid)
