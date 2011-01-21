@@ -4,6 +4,10 @@ from django.utils.translation import gettext as _
 from django.contrib.auth.models import User
 from socialregistration.signals import socialregistrationuser_created
 
+from signup_codes.models import check_signup_code #SignupCode
+from programs.middleware import get_current_program
+
+
 class UserForm(forms.Form):
     username = forms.RegexField(r'^\w+$', max_length=32)
     email = forms.EmailField(required=False)
@@ -45,6 +49,14 @@ class FacebookUserForm(forms.Form):
         self.user = user
         self.profile = profile
 
+        # my hack - no need for sign up code if they are in a program
+        if get_current_program():
+            self.fields['signup_code'] = forms.CharField(max_length=40, required=False, widget=forms.widgets.HiddenInput())
+        else:
+            self.fields['signup_code'] = forms.CharField(max_length=40, required=False, widget=forms.PasswordInput(),
+                                label=_("Signup Code"))
+ 
+
     def clean_email(self):
         email = self.cleaned_data.get('email')
         try:
@@ -65,3 +77,19 @@ class FacebookUserForm(forms.Form):
                         profile=self.profile, 
                         request=request)
         return self.user
+
+    def clean_signup_code(self):
+        code = self.cleaned_data.get("signup_code")
+
+        # my hack - no need to use signup if they are in a program
+        if get_current_program():
+            signup_code = True
+        else:
+            signup_code = check_signup_code(code)
+
+        if signup_code:
+            return signup_code
+        else:
+            raise forms.ValidationError("Signup code was not valid.")
+
+

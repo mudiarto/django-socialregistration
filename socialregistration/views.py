@@ -23,6 +23,8 @@ from socialregistration.models import FacebookProfile, TwitterProfile, OpenIDPro
 
 from libs.utils import generate_unique_username
 
+from signup_codes.models import SignupCode
+
 
 FB_ERROR = _('We couldn\'t validate your Facebook credentials')
 
@@ -63,6 +65,7 @@ def setup(request, template='socialregistration/setup.html',
             form = form_class(social_user, social_profile, request.POST)
             
             if form.is_valid():
+
                 form.save(request=request)
                 user = form.profile.authenticate()
                 login(request, user)
@@ -125,6 +128,10 @@ def facebook_setup(request, template='socialregistration/facebook_setup.html',
                 user = form.profile.authenticate()
                 login(request, user)
 
+                signup_code = form.cleaned_data["signup_code"]
+                if type(signup_code) == type(SignupCode()):
+                    signup_code.use(user)
+ 
                 del request.session['socialregistration_user']
                 del request.session['socialregistration_profile']
 
