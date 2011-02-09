@@ -7,6 +7,7 @@ from socialregistration.signals import socialregistrationuser_created
 from signup_codes.models import check_signup_code #SignupCode
 from programs.middleware import get_current_program
 
+from django.conf import settings
 
 class UserForm(forms.Form):
     username = forms.RegexField(r'^\w+$', max_length=32)
@@ -49,13 +50,14 @@ class FacebookUserForm(forms.Form):
         self.user = user
         self.profile = profile
 
-        # my hack - no need for sign up code if they are in a program
-        if get_current_program():
-            self.fields['signup_code'] = forms.CharField(max_length=40, required=False, widget=forms.widgets.HiddenInput())
-        else:
-            self.fields['signup_code'] = forms.CharField(max_length=40, required=False, widget=forms.PasswordInput(),
-                                label=_("Signup Code"))
- 
+        if settings.REGISTRATION_REQUIRE_SIGNUP_CODE:
+            # my hack - no need for sign up code if they are in a program
+            if get_current_program():
+                self.fields['signup_code'] = forms.CharField(max_length=40, required=False, widget=forms.widgets.HiddenInput())
+            else:
+                self.fields['signup_code'] = forms.CharField(max_length=40, required=False, widget=forms.PasswordInput(),
+                                    label=_("Signup Code"))
+     
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
