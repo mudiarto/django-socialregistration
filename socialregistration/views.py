@@ -128,7 +128,7 @@ def facebook_setup(request, template='socialregistration/facebook_setup.html',
                 user = form.profile.authenticate()
                 login(request, user)
 
-                signup_code = form.cleaned_data["signup_code"]
+                signup_code = form.cleaned_data.get("signup_code", None)
                 if type(signup_code) == type(SignupCode()):
                     signup_code.use(user)
  
