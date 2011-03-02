@@ -66,7 +66,9 @@ class FacebookUserForm(forms.Form):
         except User.DoesNotExist:
             return email
         else:
-            raise forms.ValidationError(_('This email is already in use.'))
+            raise forms.ValidationError(_('This email is already in use. '
+                'If you want to merge your account, please login using your email,'
+                ' and then connect to facebook from there.'))
 
     def save(self, request=None):
         self.user.email = self.cleaned_data.get('email')

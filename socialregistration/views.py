@@ -22,13 +22,18 @@ from socialregistration.utils import (OAuthClient, OAuthTwitter,
 from socialregistration.models import FacebookProfile, TwitterProfile, OpenIDProfile
 
 from libs.utils import generate_unique_username
-
 from signup_codes.models import SignupCode
+from socialregistration.signals import socialregistrationuser_created
 
+from django.core.validators import validate_email, ValidationError
+#from django.db.models import EmailField
 
 FB_ERROR = _('We couldn\'t validate your Facebook credentials')
 
 GENERATE_USERNAME = bool(getattr(settings, 'SOCIALREGISTRATION_GENERATE_USERNAME', False))
+
+
+
 
 def _get_next(request):
     """
@@ -44,7 +49,29 @@ def _get_next(request):
         return request.POST.get('next')
     else:
         return getattr(settings, 'LOGIN_REDIRECT_URL', '/')
-        
+
+def valid_email_or_none(email):
+    # email validation & check length
+    if email:
+        try:
+            validate_email(email)
+            #if len(email) > EmailField().max_length:
+            if len(email) > 255:   # my hack, see base/models - hack_email()
+                email = None
+        except ValidationError:
+            pass
+
+    # check if email already exists
+    if email:
+        try:
+            user = User.objects.get(email=email)
+            email = None # user with this email already exists, set email to None
+        except User.DoesNotExist:
+            pass
+
+    return email
+
+
 def setup(request, template='socialregistration/setup.html',
     form_class=UserForm, extra_context=dict()):
     """
@@ -63,7 +90,7 @@ def setup(request, template='socialregistration/setup.html',
             form = form_class(social_user, social_profile)
         else:
             form = form_class(social_user, social_profile, request.POST)
-            
+
             if form.is_valid():
 
                 form.save(request=request)
@@ -79,7 +106,7 @@ def setup(request, template='socialregistration/setup.html',
 
         return render_to_response(template, extra_context,
             context_instance=RequestContext(request))
-        
+
     else:
         # Generate user and profile
         social_user.username = generate_unique_username()
@@ -101,12 +128,17 @@ if has_csrf:
     setup = csrf_protect(setup)
 
 
-    
+
 def facebook_setup(request, template='socialregistration/facebook_setup.html',
     form_class=FacebookUserForm, extra_context=dict()):
     """
     Setup view to create a username & set email address after authentication
     Clone of setup, special to do facebook stuff
+
+    TODO:
+        need to handle this scenario :
+            - user logged in with facebook, but the email already exists - somewhat handled correctly right now,
+              although not very convenient
     """
     try:
         social_user = request.session['socialregistration_user']
@@ -114,9 +146,9 @@ def facebook_setup(request, template='socialregistration/facebook_setup.html',
     except KeyError:
         return render_to_response(
             template, dict(error=True), context_instance=RequestContext(request))
-            
-    if not GENERATE_USERNAME:
-        # User can pick own email
+
+    if not GENERATE_USERNAME or (not social_user.email):
+        # Should go here so user can pick their email
         if not request.method == "POST":
             form = form_class(social_user, social_profile)
         else:
@@ -131,7 +163,7 @@ def facebook_setup(request, template='socialregistration/facebook_setup.html',
                 signup_code = form.cleaned_data.get("signup_code", None)
                 if type(signup_code) == type(SignupCode()):
                     signup_code.use(user)
- 
+
                 del request.session['socialregistration_user']
                 del request.session['socialregistration_profile']
 
@@ -139,6 +171,7 @@ def facebook_setup(request, template='socialregistration/facebook_setup.html',
 
         extra_context.update(dict(form=form))
         extra_context['user']=social_user
+        extra_context['original_email']=request.session['socialregistration_email']
 
         return render_to_response(template, extra_context,
             context_instance=RequestContext(request))
@@ -151,6 +184,13 @@ def facebook_setup(request, template='socialregistration/facebook_setup.html',
         social_profile.user = social_user
         social_profile.save()
 
+        socialregistrationuser_created.send( 
+                        sender=None, 
+                        user=social_user, 
+                        profile=social_profile, 
+                        request=request)
+
+
         # Authenticate and login
         user = social_profile.authenticate()
         login(request, user)
@@ -158,6 +198,7 @@ def facebook_setup(request, template='socialregistration/facebook_setup.html',
         # Clear & Redirect
         del request.session['socialregistration_user']
         del request.session['socialregistration_profile']
+        del request.session['socialregistration_email']
         return HttpResponseRedirect(_get_next(request))
 
 if has_csrf:
@@ -169,7 +210,7 @@ def facebook_login(request, template='socialregistration/facebook.html',
     """
     View to handle the Facebook login
     """
-    
+
     if request.facebook.uid is None:
         extra_context.update(dict(error=FB_ERROR))
         return render_to_response(template, extra_context,
@@ -185,11 +226,13 @@ def facebook_login(request, template='socialregistration/facebook.html',
             profile = graph.get_object("me")
             user.first_name = profile['first_name']
             user.last_name = profile['last_name']
+            user.email = valid_email_or_none(profile.get('email'))
         except:
             pass
         request.session['socialregistration_user'] = user
         request.session['socialregistration_profile'] = FacebookProfile(uid=request.facebook.uid)
         request.session['next'] = _get_next(request)
+        request.session['socialregistration_email'] = profile.get('email')
         return HttpResponseRedirect(reverse('socialregistration_facebook_setup'))
 
     if not user.is_active:
@@ -209,7 +252,7 @@ def facebook_connect(request, template='socialregistration/facebook.html',
         extra_context.update(dict(error=FB_ERROR))
         return render_to_response(template, extra_context,
             context_instance=RequestContext(request))
-    
+
     try:
         profile = FacebookProfile.objects.get(uid=request.facebook.uid)
     except FacebookProfile.DoesNotExist:
