@@ -2,8 +2,8 @@
     {% if is_https %}<script src="https://connect.facebook.net/en_US/all.js"></script>{% else %}<script src="http://connect.facebook.net/en_US/all.js"></script>{% endif %}
 </div>
 <script>
-  // initialize the library with the API key
-  FB.init({ apiKey: '{{ facebook_api_key }}', status: true, cookie: true, xfbml: true});
+  // initialize the library with the APP ID
+  FB.init({ apiKey: '{{ facebook_app_id }}', status: true, cookie: true, xfbml: true});
 
   function facebookConnect(form){
       function handleResponse(response){
